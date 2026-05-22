@@ -1,5 +1,9 @@
 # 🚖 택시 동승 매칭 서비스 (Backend API 스펙)
-
+## 🛠 기술 스택
+- **Framework:** FastAPI
+- **DB:** SQLite (로컬 개발용) ➡️ PostgreSQL (AWS 배포 예정)
+- **Cache & Pub/Sub:** Redis (세션 관리 및 웹소켓 브로드캐스팅)
+- **Infra:** AWS EC2, RDS, ElastiCache (예정)
 이 문서는 프론트엔드와 백엔드 간의 통신 규약을 정의합니다. 
 모든 API는 백엔드 서버가 실행 중인 `http://로컬IP주소:8000` (나중에는 AWS 도메인)을 기준으로 호출합니다.
 
