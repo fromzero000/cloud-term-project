@@ -1,16 +1,93 @@
-# React + Vite
+# 🚖 Taxi Mate Frontend
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+실시간 위치 기반 택시 동승 매칭 서비스 프론트엔드 프로젝트
 
-Currently, two official plugins are available:
+## 📌 프로젝트 소개
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+React와 Kakao Map API를 활용하여 사용자의 위치 기반 택시 동승 서비스를 구현합니다.
+사용자는 출발지와 목적지를 기반으로 택시 동승 방을 생성하거나 참여할 수 있으며 WebSocket을 통해 실시간 위치를 공유할 수 있습니다.
 
-## React Compiler
+---
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## 🛠️ Tech Stack
 
-## Expanding the ESLint configuration
+* React
+* Vite
+* React Router DOM
+* Kakao Map API
+* Axios
+* WebSocket
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+---
+
+## ✅ 현재 구현 기능
+
+* React + Vite 프로젝트 초기 세팅
+* GitHub 연동 및 프로젝트 구조 구성
+* React Router 기반 페이지 이동 구현
+* 로그인 페이지 구성
+* 메인 페이지 구성
+* 방 생성 페이지 UI 구현
+* Kakao Map API 연동
+* 부산대학교 IT관 기준 지도 및 마커 출력 구현
+
+---
+
+## 📂 페이지 구조
+
+* `/`
+
+  * 로그인 페이지
+
+* `/main`
+
+  * 메인 지도 페이지
+
+* `/create-room`
+
+  * 방 생성 페이지
+
+* `/room/:id`
+
+  * 실시간 위치 공유 방 페이지
+
+---
+
+## 🔥 다음 구현 예정 기능
+
+### REST API 연동
+
+* 방 목록 조회 API 연결
+* 방 생성 API 연결
+* 방 참여 API 연결
+
+### 실시간 위치 공유 기능
+
+* WebSocket 연결
+* 사용자 위치 송수신
+* 지도 마커 실시간 업데이트
+* 연결 종료 시 자동 재연결 기능 구현
+
+### UI 개선
+
+* 모바일 반응형 UI
+* 방 목록 카드 디자인 개선
+* 사용자 위치 기반 지도 이동 기능 추가
+
+---
+
+## 📌 실행 방법
+
+```bash
+npm install
+npm run dev
+```
+
+---
+
+## 👨‍💻 Frontend 담당
+
+* React 기반 UI 구현
+* Kakao Map API 연동
+* REST API 연동
+* WebSocket 실시간 위치 공유 기능 구현 예정
