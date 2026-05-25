@@ -100,8 +100,6 @@ npm run dev
 
 ## 📌 개발 진행 상황
 
-## 📌 개발 진행 상황
-
 * [x] 프로젝트 초기 세팅
 * [x] Router 기반 페이지 이동 구현
 * [x] Kakao Map API 연동
