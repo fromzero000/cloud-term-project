@@ -1,18 +1,35 @@
 import { useState } from "react";
+import axios from "axios";
 
 export default function CreateRoomPage() {
     const [departure, setDeparture] = useState("");
     const [destination, setDestination] = useState("");
     const [time, setTime] = useState("");
 
-    const handleCreateRoom = () => {
-        console.log({
-            departure,
-            destination,
-            time,
-        });
+    const handleCreateRoom = async () => {
+        try {
+            const response = await axios.post(
+                "http://127.0.0.1:8000/api/rooms",
+                {
+                    departure,
+                    destination,
+                    time,
+                },
+                {
+                    headers: {
+                        Authorization: "Bearer test-token",
+                    },
+                }
+            );
 
-        alert("방 생성 요청!");
+            console.log(response.data);
+
+            alert("방 생성 성공!");
+        } catch (error) {
+            console.error(error);
+
+            alert("방 생성 실패!");
+        }
     };
 
     return (
