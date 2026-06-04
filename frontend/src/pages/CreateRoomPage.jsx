@@ -12,7 +12,7 @@ export default function CreateRoomPage() {
     const handleCreateRoom = async () => {
         try {
             const response = await axios.post(
-                "http://127.0.0.1:8000/api/rooms",
+                "https://silver-guests-push.loca.lt/api/rooms",
                 {
                     departure,
                     destination,

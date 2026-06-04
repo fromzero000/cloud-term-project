@@ -19,7 +19,7 @@ export default function RoomPage() {
 
         const connectWebSocket = () => {
             socket = new WebSocket(
-                `ws://127.0.0.1:8000/ws/rooms/${id}?token=${token}`
+                `wss://silver-guests-push.loca.lt/ws/rooms/${id}?token=${token}`
             );
 
             socket.onopen = () => {

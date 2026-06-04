@@ -29,7 +29,7 @@ export default function LoginPage() {
                     console.log(authObj);
 
                     const response = await axios.post(
-                        "http://127.0.0.1:8000/api/auth/kakao",
+                        "https://silver-guests-push.loca.lt/api/auth/kakao",
                         {
                             access_token:
                                 authObj.access_token,

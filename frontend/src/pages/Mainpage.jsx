@@ -25,7 +25,7 @@ export default function MainPage() {
     const handleJoinRoom = async (roomId) => {
         try {
             const response = await axios.post(
-                `http://127.0.0.1:8000/api/rooms/${roomId}/join`,
+                `https://silver-guests-push.loca.lt/api/rooms/${roomId}/join`,
                 {},
                 {
                     headers: {

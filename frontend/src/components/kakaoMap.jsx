@@ -12,6 +12,7 @@ export default function KakaoMap({ locations = [] }) {
         window.kakao.maps.load(() => {
             navigator.geolocation.getCurrentPosition(
                 (position) => {
+                    if (!mapRef.current) return; 
                     const lat = position.coords.latitude;
                     const lng = position.coords.longitude;
 
