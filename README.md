@@ -42,3 +42,57 @@
 ## 5. 동작 환경
 * [cite_start]**클라이언트**: 별도 앱 설치가 필요 없는 스마트폰 중심의 Mobile Web (PC 브라우저 호환) [cite: 111, 112]
 * [cite_start]**서버 및 DB**: AWS EC2(WAS), RDS(Database)를 활용한 클라우드 환경 구축 [cite: 113, 114]
+
+---
+
+## 6. 로컬 실행 가이드 (개발자용)
+
+본 프로젝트는 프론트엔드 빌드 결과물을 FastAPI 백엔드가 한 번에 제공하는 통합 아키텍처를 사용합니다.
+
+### 1) 프론트엔드 빌드
+프론트엔드 UI나 로직을 수정했다면 **반드시 빌드를 새로 해야** 백엔드 화면에 반영됩니다.
+```bash
+cd frontend
+npm install
+npm run build
+```
+*(주의: `frontend/.env` 파일 안에 반드시 카카오 'JavaScript 키'가 `VITE_KAKAO_MAP_KEY` 이름으로 저장되어 있어야 합니다.)*
+
+### 2) 백엔드 서버 실행
+```bash
+# 1. Redis 서버 실행 (웹소켓 위치 공유용 필수)
+redis-server
+
+# 2. 백엔드 종속성 설치 및 실행
+cd backend
+pip install -r requirements.txt
+uvicorn main:app --reload
+```
+서버가 켜지면 브라우저에서 `http://127.0.0.1:8000` 으로 접속하여 앱 전체를 테스트할 수 있습니다. (외부 팀원 테스트 시 `localtunnel` 등을 통해 8000번 포트만 열어주면 됩니다.)
+
+---
+
+## 7. 클라우드 배포 가이드 (인프라 파트용)
+
+AWS 인프라(EC2, RDS 등)에 실제 배포를 진행할 팀원은 `backend/main.py` 파일에서 다음 세 가지를 반드시 AWS 환경에 맞게 수정해야 합니다.
+
+### 1) 데이터베이스 (RDS) 연결 주소 변경
+기존 로컬 개발용 SQLite를 지우고, AWS RDS(PostgreSQL/MySQL 등) 주소로 변경합니다.
+- **수정 위치**: `main.py` 19번째 줄 근처
+- **변경 전**: `DATABASE_URL = "sqlite:///./taxi_app.db"`
+- **변경 후**: `DATABASE_URL = "postgresql://<아이디>:<비밀번호>@<AWS-RDS-엔드포인트>:5432/<DB이름>"`
+
+### 2) Redis (ElastiCache) 연결 주소 변경
+실시간 GPS 통신 방송을 담당하는 Redis 주소를 AWS ElastiCache 주소로 변경합니다.
+- **수정 위치**: `main.py` 75번째 줄 근처
+- **변경 전**: `redis_client = redis.from_url("redis://localhost:6379", ...)`
+- **변경 후**: `redis_client = redis.from_url("redis://<AWS-ElastiCache-엔드포인트>:6379", ...)`
+
+### 3) 카카오 디벨로퍼스 도메인 및 CORS 등록 (⭐가장 중요)
+AWS EC2에 할당된 **퍼블릭 IP(또는 구매한 도메인 주소)**를 다음 두 곳에 반드시 등록해야 로그인과 지도가 작동합니다.
+1. `main.py` 68번째 줄의 `allow_origins` 리스트에 배포할 EC2 주소 추가
+2. **카카오 개발자 사이트** -> `내 애플리케이션` -> `플랫폼` -> `Web 플랫폼` 에 해당 EC2 주소 추가 (끝에 `/` 제외)
+
+### 4) 실행 팁
+- EC2 인바운드 보안 그룹에서 `8000`번 포트(또는 Nginx 프록시 사용 시 `80`/`443` 포트)를 개방해야 합니다.
+- 터미널을 꺼도 서버가 죽지 않도록 `nohup uvicorn main:app --host 0.0.0.0 --port 8000 &` 등의 명령어로 백그라운드 실행을 권장합니다.
