@@ -4,6 +4,8 @@
 
 Detailed plan: [CLOUD_DEPLOYMENT_PLAN.md](./CLOUD_DEPLOYMENT_PLAN.md)
 
+Frontend deployment status: [FRONTEND_DEPLOYMENT_STATUS.md](./FRONTEND_DEPLOYMENT_STATUS.md)
+
 ---
 
 # Korean
@@ -68,6 +70,7 @@ RDS PostgreSQL + ElastiCache Redis
 * RDS PostgreSQL을 이용한 최종 데이터베이스 구조 계획
 * ElastiCache Redis를 이용한 세션 관리 및 WebSocket Pub/Sub 구조 계획
 * Auto Scaling 상황에서 WebSocket 연결이 끊길 수 있는 문제와 재연결 대응 방안 정리
+* 최신 프론트엔드 구현 상태 확인: Kakao 로그인, token 저장, 방 생성/참여 API, WebSocket 재연결 로직 구현 확인
 
 ---
 
@@ -76,6 +79,7 @@ RDS PostgreSQL + ElastiCache Redis
 ### Frontend
 
 프론트엔드는 배포 환경에서 `localhost`, `127.0.0.1`을 사용하면 안 됩니다.
+현재 프론트엔드에는 아직 `http://localhost:8000`, `http://127.0.0.1:8000`, `ws://127.0.0.1:8000` 주소가 남아 있으므로 AWS 배포 전 환경 변수 방식으로 변경되어야 합니다.
 
 대신 환경 변수를 사용합니다.
 
@@ -221,6 +225,7 @@ Auto Scaling으로 EC2 인스턴스가 종료될 때 기존 WebSocket 연결이 
 * [x] ALB 연결 및 Security Group 계획 정리
 * [x] RDS PostgreSQL 전환 계획 정리
 * [x] Redis / ElastiCache WebSocket Pub/Sub 구조 정리
+* [x] 최신 프론트엔드 배포 상태 확인
 * [ ] 실제 EC2 백엔드 배포
 * [ ] 실제 S3 + CloudFront 프론트엔드 배포
 * [ ] ALB 연결 테스트
@@ -291,6 +296,7 @@ RDS PostgreSQL + ElastiCache Redis
 * Planned final database architecture with RDS PostgreSQL
 * Planned session management and WebSocket Pub/Sub with ElastiCache Redis
 * Documented the WebSocket disconnection risk during Auto Scaling and the reconnect strategy
+* Checked latest frontend implementation: Kakao login, token storage, room create/join APIs, and WebSocket reconnect logic are now present
 
 ---
 
@@ -299,6 +305,7 @@ RDS PostgreSQL + ElastiCache Redis
 ### Frontend
 
 The deployed frontend must not use `localhost` or `127.0.0.1`.
+The current frontend still contains `http://localhost:8000`, `http://127.0.0.1:8000`, and `ws://127.0.0.1:8000`, so these must be replaced with environment variables before AWS deployment.
 
 Use environment variables instead.
 
@@ -444,6 +451,7 @@ Prepare screenshots of:
 * [x] ALB and Security Group plan
 * [x] RDS PostgreSQL migration plan
 * [x] Redis / ElastiCache WebSocket Pub/Sub plan
+* [x] Latest frontend deployment status checked
 * [ ] Actual EC2 backend deployment
 * [ ] Actual S3 + CloudFront frontend deployment
 * [ ] ALB connection test
