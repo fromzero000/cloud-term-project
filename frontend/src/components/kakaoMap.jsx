@@ -1,41 +1,93 @@
 import { useEffect, useRef } from "react";
 
-export default function KakaoMap() {
+export default function KakaoMap({ locations = [] }) {
     const mapRef = useRef(null);
+    const mapInstance = useRef(null);
+    const markersRef = useRef({});
 
+    // 지도 최초 생성
     useEffect(() => {
         if (!window.kakao) return;
 
         window.kakao.maps.load(() => {
-            const container = mapRef.current;
+            navigator.geolocation.getCurrentPosition(
+                (position) => {
+                    const lat = position.coords.latitude;
+                    const lng = position.coords.longitude;
 
-            const options = {
-                center: new window.kakao.maps.LatLng(35.2311, 129.0825),
-                level: 3,
-            };
+                    const map = new window.kakao.maps.Map(
+                        mapRef.current,
+                        {
+                            center: new window.kakao.maps.LatLng(
+                                lat,
+                                lng
+                            ),
+                            level: 3,
+                        }
+                    );
 
-            const map = new window.kakao.maps.Map(container, options);
+                    mapInstance.current = map;
 
-            // 마커 추가
-            const markerPosition = new window.kakao.maps.LatLng(
-                35.2306,
-                129.0831
+                    const myMarker =
+                        new window.kakao.maps.Marker({
+                            position:
+                                new window.kakao.maps.LatLng(
+                                    lat,
+                                    lng
+                                ),
+                        });
+
+                    myMarker.setMap(map);
+                },
+                (error) => {
+                    console.error(error);
+                }
             );
-
-            const marker = new window.kakao.maps.Marker({
-                position: markerPosition,
-            });
-
-            marker.setMap(map);
         });
     }, []);
+
+    // 위치 데이터 변경 시 마커 갱신
+    useEffect(() => {
+        if (!mapInstance.current) return;
+
+        locations.forEach((user) => {
+            const position =
+                new window.kakao.maps.LatLng(
+                    user.lat,
+                    user.lng
+                );
+
+            if (
+                markersRef.current[user.nickname]
+            ) {
+                markersRef.current[
+                    user.nickname
+                ].setPosition(position);
+            } else {
+                const marker =
+                    new window.kakao.maps.Marker({
+                        position,
+                    });
+
+                marker.setMap(
+                    mapInstance.current
+                );
+
+                markersRef.current[
+                    user.nickname
+                ] = marker;
+            }
+        });
+    }, [locations]);
 
     return (
         <div
             ref={mapRef}
             style={{
                 width: "100%",
-                height: "500px",
+                height: "400px",
+                borderRadius: "12px",
+                overflow: "hidden",
             }}
         />
     );

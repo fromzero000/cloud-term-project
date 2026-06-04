@@ -42,8 +42,8 @@ SQLite is used only for demo. Final architecture uses RDS PostgreSQL.
 
 These are important because they can break AWS deployment even if the app works locally.
 
-- Frontend still uses `localhost` and `127.0.0.1`.
-- `CreateRoomPage.jsx` still uses `Authorization: Bearer test-token`.
+- Frontend now includes Kakao login, backend token storage in `localStorage`, room create/join API calls with `Authorization: Bearer <token>`, and WebSocket reconnect logic.
+- Frontend still uses local-only API/WebSocket URLs: `http://localhost:8000`, `http://127.0.0.1:8000`, and `ws://127.0.0.1:8000`.
 - Backend still uses local SQLite: `sqlite:///./taxi_app.db`.
 - Backend still uses local Redis: `redis://localhost:6379`.
 - Backend needs a `/health` endpoint for ALB health checks.
@@ -66,6 +66,14 @@ The frontend should not use:
 localhost
 127.0.0.1
 ```
+
+Current frontend files that need this replacement before deployment:
+
+- `frontend/src/api/room.js`
+- `frontend/src/pages/LoginPage.jsx`
+- `frontend/src/pages/CreateRoomPage.jsx`
+- `frontend/src/pages/Mainpage.jsx`
+- `frontend/src/pages/RoomPage.jsx`
 
 Use environment variables instead:
 
@@ -569,4 +577,3 @@ Before submitting, test this flow:
 8. Test WebSocket GPS sharing if the frontend feature is ready.
 9. Check ALB target group is healthy.
 10. Take screenshots for the report.
-
