@@ -2,8 +2,11 @@ import asyncio
 import json
 import uuid
 import httpx
+import os
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Depends, HTTPException, Header, Query
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 from pydantic import BaseModel
 import redis.asyncio as redis
 
@@ -65,7 +68,7 @@ app = FastAPI(title="택시 동승 매칭 서버")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173", "https://tough-lemons-shop.loca.lt", "https://warm-crab-57.loca.lt"],
+    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173", "https://strong-bikes-repeat.loca.lt", "https://stale-emu-15.loca.lt"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -268,3 +271,22 @@ async def gps_websocket(websocket: WebSocket, room_id: str, token: str = Query(.
     finally:
         listener_task.cancel()
         await pubsub.unsubscribe(channel_name)
+
+# ==========================================
+# 8. 프론트엔드 정적 파일 서빙 및 라우팅 설정
+# ==========================================
+frontend_dist = os.path.join(os.path.dirname(__file__), "..", "frontend", "dist")
+
+if os.path.exists(os.path.join(frontend_dist, "assets")):
+    app.mount("/assets", StaticFiles(directory=os.path.join(frontend_dist, "assets")), name="assets")
+
+@app.get("/{full_path:path}")
+async def serve_frontend(full_path: str):
+    file_path = os.path.join(frontend_dist, full_path)
+    if os.path.isfile(file_path):
+        return FileResponse(file_path)
+    
+    index_path = os.path.join(frontend_dist, "index.html")
+    if os.path.exists(index_path):
+        return FileResponse(index_path)
+    raise HTTPException(status_code=404, detail="Not Found")

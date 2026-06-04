@@ -18,8 +18,9 @@ export default function RoomPage() {
         let locationInterval;
 
         const connectWebSocket = () => {
+            const wsProtocol = window.location.protocol === "https:" ? "wss:" : "ws:";
             socket = new WebSocket(
-                `wss://silver-guests-push.loca.lt/ws/rooms/${id}?token=${token}`
+                `${wsProtocol}//${window.location.host}/ws/rooms/${id}?token=${token}`
             );
 
             socket.onopen = () => {

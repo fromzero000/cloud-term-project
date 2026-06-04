@@ -1,6 +1,6 @@
 import axios from "axios";
 
-const BASE_URL = "https://silver-guests-push.loca.lt";
+const BASE_URL = "";
 
 export const getRooms = async () => {
     try {
