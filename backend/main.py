@@ -3,6 +3,7 @@ import json
 import uuid
 import httpx
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Depends, HTTPException, Header, Query
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import redis.asyncio as redis
 
@@ -62,6 +63,14 @@ Base.metadata.create_all(bind=engine)
 # ==========================================
 app = FastAPI(title="택시 동승 매칭 서버")
 
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 # Redis 연결 (세션 및 웹소켓용)
 redis_client = redis.from_url("redis://localhost:6379", decode_responses=True)
 
@@ -120,15 +129,12 @@ async def kakao_login(data: KakaoToken, db: Session = Depends(get_db)):
 
 # (인증 미들웨어) 클라이언트가 보낸 토큰이 유효한지 검사하고 DB에서 유저를 찾아 반환
 async def get_current_user(authorization: str = Header(None), db: Session = Depends(get_db)):
-    if not authorization or not authorization.startswith("Bearer "):
-        raise HTTPException(status_code=401, detail="토큰이 필요합니다.")
-    
-    token = authorization.split(" ")[1]
-    user_id = await redis_client.get(f"session:{token}")
-    if not user_id:
-        raise HTTPException(status_code=401, detail="만료되었거나 잘못된 토큰입니다.")
-        
-    user = db.query(User).filter(User.id == user_id).first()
+    # --- 임시 연동 테스트용 가짜 유저 반환 (Redis 검증 무시) ---
+    user = db.query(User).filter(User.id == "test-user-id").first()
+    if not user:
+        user = User(id="test-user-id", nickname="테스터", gender="male", is_univ_verified=True)
+        db.add(user)
+        db.commit()
     return user
 
 
