@@ -1,10 +1,9 @@
 import axios from "axios";
-
-const BASE_URL = "";
+import { API_BASE_URL } from "./config";
 
 export const getRooms = async () => {
     try {
-        const response = await axios.get(`${BASE_URL}/api/rooms`);
+        const response = await axios.get(`${API_BASE_URL}/api/rooms`);
 
         return response.data;
     } catch (error) {

@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
 import SearchPlace from "../components/SearchPlace";
+import { API_BASE_URL } from "../api/config";
 
 export default function CreateRoomPage() {
     const navigate = useNavigate();
@@ -12,7 +13,7 @@ export default function CreateRoomPage() {
     const handleCreateRoom = async () => {
         try {
             const response = await axios.post(
-                "/api/rooms",
+                `${API_BASE_URL}/api/rooms`,
                 {
                     departure,
                     destination,

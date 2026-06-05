@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useParams, useLocation, useNavigate } from "react-router-dom";
 
 import KakaoMap from "../components/KakaoMap";
+import { WS_BASE_URL } from "../api/config";
 
 export default function RoomPage() {
     const { id } = useParams();
@@ -25,9 +26,8 @@ export default function RoomPage() {
         let locationInterval;
 
         const connectWebSocket = () => {
-            const wsProtocol = window.location.protocol === "https:" ? "wss:" : "ws:";
             socket = new WebSocket(
-                `${wsProtocol}//${window.location.host}/ws/rooms/${id}?token=${token}`
+                `${WS_BASE_URL}/ws/rooms/${id}?token=${token}`
             );
 
             socket.onopen = () => {

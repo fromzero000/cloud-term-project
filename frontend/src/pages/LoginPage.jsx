@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
+import { API_BASE_URL } from "../api/config";
 
 export default function LoginPage() {
     const navigate = useNavigate();
@@ -29,7 +30,7 @@ export default function LoginPage() {
                     console.log(authObj);
 
                     const response = await axios.post(
-                        "/api/auth/kakao",
+                        `${API_BASE_URL}/api/auth/kakao`,
                         {
                             access_token:
                                 authObj.access_token,

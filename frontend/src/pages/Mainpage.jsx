@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import KakaoMap from "../components/KakaoMap";
 import { getRooms } from "../api/room";
 import axios from "axios";
+import { API_BASE_URL } from "../api/config";
 
 export default function MainPage() {
     const navigate = useNavigate();
@@ -36,7 +37,7 @@ export default function MainPage() {
     const handleJoinRoom = async (roomId) => {
         try {
             const response = await axios.post(
-                `/api/rooms/${roomId}/join`,
+                `${API_BASE_URL}/api/rooms/${roomId}/join`,
                 {},
                 {
                     headers: {

@@ -135,7 +135,7 @@ POST /api/rooms/{room_id}/join
 ### 실시간 위치 공유
 
 ```http
-ws://127.0.0.1:8000/ws/rooms/{room_id}?token={token}
+ws://taxi-team9-alb-2054411194.ap-northeast-2.elb.amazonaws.com/ws/rooms/{room_id}?token={token}
 ```
 
 ---
@@ -168,6 +168,20 @@ cd frontend
 npm install
 npm run dev
 ```
+
+---
+
+## ☁️ AWS 배포 환경 변수
+
+AWS 배포 시 API와 WebSocket 주소는 환경 변수로 설정합니다.
+
+```env
+VITE_API_BASE_URL=http://taxi-team9-alb-2054411194.ap-northeast-2.elb.amazonaws.com
+VITE_WS_BASE_URL=ws://taxi-team9-alb-2054411194.ap-northeast-2.elb.amazonaws.com
+VITE_KAKAO_MAP_KEY=your_kakao_key
+```
+
+코드에서 환경 변수가 없으면 위 ALB 주소를 기본값으로 사용합니다.
 
 ---
 
