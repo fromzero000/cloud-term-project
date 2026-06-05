@@ -6,6 +6,10 @@ Detailed plan: [CLOUD_DEPLOYMENT_PLAN.md](./CLOUD_DEPLOYMENT_PLAN.md)
 
 Frontend deployment status: [FRONTEND_DEPLOYMENT_STATUS.md](./FRONTEND_DEPLOYMENT_STATUS.md)
 
+AWS connection start plan: [AWS_CONNECTION_START_PLAN.md](./AWS_CONNECTION_START_PLAN.md)
+
+Current AWS progress report: [CLOUD_PROGRESS_REPORT.md](./CLOUD_PROGRESS_REPORT.md)
+
 ---
 
 # Korean
@@ -71,6 +75,10 @@ RDS PostgreSQL + ElastiCache Redis
 * ElastiCache Redis를 이용한 세션 관리 및 WebSocket Pub/Sub 구조 계획
 * Auto Scaling 상황에서 WebSocket 연결이 끊길 수 있는 문제와 재연결 대응 방안 정리
 * 최신 프론트엔드 구현 상태 확인: Kakao 로그인, token 저장, 방 생성/참여 API, WebSocket 재연결 로직 구현 확인
+* 현재 localtunnel 테스트 페이지 기준 AWS 연결 시작 가능 여부 정리
+* EC2 테스트 backend 실행 및 systemd 상시 실행 확인
+* S3 bucket 생성 및 frontend build 파일 업로드
+* CloudFront distribution 생성 및 S3 origin 연결
 
 ---
 
@@ -226,8 +234,14 @@ Auto Scaling으로 EC2 인스턴스가 종료될 때 기존 WebSocket 연결이 
 * [x] RDS PostgreSQL 전환 계획 정리
 * [x] Redis / ElastiCache WebSocket Pub/Sub 구조 정리
 * [x] 최신 프론트엔드 배포 상태 확인
-* [ ] 실제 EC2 백엔드 배포
-* [ ] 실제 S3 + CloudFront 프론트엔드 배포
+* [x] AWS 연결 시작 계획 정리
+* [x] EC2 테스트 backend 배포 및 `/health` 확인
+* [x] systemd로 테스트 backend 상시 실행 설정
+* [x] S3 bucket 생성 및 frontend build 파일 업로드
+* [x] CloudFront distribution 생성
+* [ ] 실제 프로젝트 backend 코드 EC2 배포
+* [ ] Target Group / ALB health check 정상화
+* [ ] frontend local URL 제거 후 새 build 파일 S3 재업로드
 * [ ] ALB 연결 테스트
 * [ ] RDS 및 ElastiCache 적용
 * [ ] 최종 스크린샷 및 보고서 정리
@@ -297,6 +311,10 @@ RDS PostgreSQL + ElastiCache Redis
 * Planned session management and WebSocket Pub/Sub with ElastiCache Redis
 * Documented the WebSocket disconnection risk during Auto Scaling and the reconnect strategy
 * Checked latest frontend implementation: Kakao login, token storage, room create/join APIs, and WebSocket reconnect logic are now present
+* Documented that AWS connection preparation can begin based on the current localtunnel test page
+* Verified test backend on EC2 with systemd continuous execution
+* Created S3 bucket and uploaded frontend build files
+* Created CloudFront distribution connected to the S3 origin
 
 ---
 
@@ -452,8 +470,14 @@ Prepare screenshots of:
 * [x] RDS PostgreSQL migration plan
 * [x] Redis / ElastiCache WebSocket Pub/Sub plan
 * [x] Latest frontend deployment status checked
-* [ ] Actual EC2 backend deployment
-* [ ] Actual S3 + CloudFront frontend deployment
+* [x] AWS connection start plan prepared
+* [x] Test backend deployed on EC2 and `/health` verified
+* [x] Test backend configured with systemd
+* [x] S3 bucket created and frontend build files uploaded
+* [x] CloudFront distribution created
+* [ ] Deploy actual project backend code to EC2
+* [ ] Fix Target Group / ALB health check
+* [ ] Re-upload new frontend build after local URLs are removed
 * [ ] ALB connection test
 * [ ] RDS and ElastiCache integration
 * [ ] Final screenshots and report preparation
