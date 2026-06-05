@@ -9,6 +9,7 @@ export default function MainPage() {
     const navigate = useNavigate();
 
     const [rooms, setRooms] = useState([]);
+    const [search, setSearch] = useState("");
 
     useEffect(() => {
         fetchRooms();
@@ -21,6 +22,16 @@ export default function MainPage() {
             setRooms(data.rooms);
         }
     };
+
+    const filteredRooms = rooms.filter(
+        (room) =>
+            room.departure
+                .toLowerCase()
+                .includes(search.toLowerCase()) ||
+            room.destination
+                .toLowerCase()
+                .includes(search.toLowerCase())
+    );
 
     const handleJoinRoom = async (roomId) => {
         try {
@@ -92,9 +103,24 @@ export default function MainPage() {
                     padding: "20px",
                 }}
             >
+                <input
+                    type="text"
+                    placeholder="출발지 또는 목적지 검색"
+                    value={search}
+                    onChange={(e) =>
+                        setSearch(e.target.value)
+                    }
+                    style={{
+                        width: "100%",
+                        padding: "10px",
+                        marginBottom: "20px",
+                        borderRadius: "10px",
+                        border: "1px solid #ccc",
+                    }}
+                />
                 <h2>현재 방 목록</h2>
 
-                {rooms.map((room) => (
+                {filteredRooms.map((room) => (
                     <div
                         key={room.room_id}
                         style={{
