@@ -4,3 +4,4 @@ sqlalchemy
 redis
 httpx
 python-dotenv
+websockets

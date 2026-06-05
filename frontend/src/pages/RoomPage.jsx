@@ -25,8 +25,9 @@ export default function RoomPage() {
         let locationInterval;
 
         const connectWebSocket = () => {
+            const wsProtocol = window.location.protocol === "https:" ? "wss:" : "ws:";
             socket = new WebSocket(
-                `ws://127.0.0.1:8000/ws/rooms/${id}?token=${token}`
+                `${wsProtocol}//${window.location.host}/ws/rooms/${id}?token=${token}`
             );
 
             socket.onopen = () => {
