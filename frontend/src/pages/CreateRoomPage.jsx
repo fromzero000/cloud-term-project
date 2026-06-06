@@ -11,6 +11,11 @@ export default function CreateRoomPage() {
     const [time, setTime] = useState("");
 
     const handleCreateRoom = async () => {
+        if (!departure || !destination || !time) {
+            alert("출발지, 목적지, 출발 시간을 모두 입력해 주세요.");
+            return;
+        }
+
         try {
             const response = await axios.post(
                 `${API_BASE_URL}/api/rooms`,

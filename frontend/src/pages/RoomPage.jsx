@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useParams, useLocation, useNavigate } from "react-router-dom";
 
-import KakaoMap from "../components/KakaoMap";
+import KakaoMap from "../components/kakaoMap";
 import { WS_BASE_URL } from "../api/config";
 
 export default function RoomPage() {

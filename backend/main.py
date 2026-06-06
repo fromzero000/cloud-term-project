@@ -41,7 +41,6 @@ class User(Base):
     __tablename__ = "users"
     id = Column(String, primary_key=True, index=True) # 카카오 고유 ID
     nickname = Column(String, nullable=False)         # 닉네임
-    gender = Column(String, nullable=False)           # 성별 (male/female)
     email = Column(String, nullable=True)             # 대학교 이메일
     is_univ_verified = Column(Boolean, default=False) # 대학교 인증 여부
 
@@ -52,7 +51,6 @@ class Room(Base):
     departure = Column(String, nullable=False)        # 출발지
     destination = Column(String, nullable=False)      # 도착지
     time = Column(String, nullable=False)             # 출발 시간
-    gender_limit = Column(String, nullable=False)     # 방장 성별 (이 성별만 들어올 수 있음)
     
     # 방에 들어온 유저들을 리스트 형태로 가져오기 위한 설정
     members = relationship("User", secondary=room_members_table)
@@ -115,12 +113,10 @@ async def kakao_login(data: KakaoToken, db: Session = Depends(get_db)):
         
     kakao_id = str(kakao_data["id"])
     nickname = kakao_data.get("kakao_account", {}).get("profile", {}).get("nickname", "익명")
-    gender = kakao_data.get("kakao_account", {}).get("gender", "unknown") 
-    
     # 2. DB에서 유저 조회, 없으면 새로 가입(Insert)
     user = db.query(User).filter(User.id == kakao_id).first()
     if not user:
-        user = User(id=kakao_id, nickname=nickname, gender=gender, is_univ_verified=False)
+        user = User(id=kakao_id, nickname=nickname, is_univ_verified=False)
         db.add(user)
         db.commit() # DB에 저장
     
@@ -159,7 +155,6 @@ def get_rooms(db: Session = Depends(get_db)):
             "departure": room.departure,
             "destination": room.destination,
             "time": room.time,
-            "gender_limit": room.gender_limit,
             "member_count": len(room.members)
         })
     return {"rooms": result}
@@ -173,8 +168,7 @@ def create_room(room_data: RoomCreate, user: User = Depends(get_current_user), d
         id=room_id,
         departure=room_data.departure,
         destination=room_data.destination,
-        time=room_data.time,
-        gender_limit=user.gender # 방장 성별로 방 제한 걸기
+        time=room_data.time
     )
     new_room.members.append(user) # 방장을 멤버에 추가
     
@@ -188,10 +182,6 @@ def join_room(room_id: str, user: User = Depends(get_current_user), db: Session 
     room = db.query(Room).filter(Room.id == room_id).first()
     if not room:
         raise HTTPException(status_code=404, detail="방을 찾을 수 없습니다.")
-        
-    # 성별 검사
-    if room.gender_limit != user.gender:
-        raise HTTPException(status_code=403, detail="동성만 참여 가능한 방입니다.")
         
     # 인원수 검사 (택시 최대 4명)
     if len(room.members) >= 4:
@@ -271,6 +261,10 @@ async def gps_websocket(websocket: WebSocket, room_id: str, token: str = Query(.
     finally:
         listener_task.cancel()
         await pubsub.unsubscribe(channel_name)
+
+@app.get("/health")
+def health():
+    return {"status": "ok"}
 
 # ==========================================
 # 8. 프론트엔드 정적 파일 서빙 및 라우팅 설정
