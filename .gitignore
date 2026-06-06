@@ -22,3 +22,4 @@ frontend/.eslintcache
 **/.env
 frontend/.env
 backend/.env
+CLOUD_DEPLOYMENT_PLAN.md

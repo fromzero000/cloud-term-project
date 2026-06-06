@@ -1,10 +1,11 @@
-# Taxi Team9 AWS Deployment Progress Report
+# 🚕 Taxi Team9 AWS Deployment Progress Report
 
-This report records the current AWS deployment progress for the Taxi Mate cloud part.
+This report records the final AWS deployment progress for the Taxi Mate cloud part.
+It reflects the latest team branch note from `20260606_1519.md`.
 
 ---
 
-## Korean Summary
+## 🇰🇷 Korean Summary
 
 현재 AWS 배포는 주요 데모 흐름 기준으로 동작하고 있습니다.
 프론트엔드는 CloudFront HTTPS 주소에서 제공되고, `/api/*` 요청은 CloudFront를 통해 ALB로 전달된 뒤 EC2 FastAPI backend로 연결됩니다.
@@ -12,104 +13,89 @@ WebSocket 요청도 `/ws/*` CloudFront behavior를 통해 ALB와 EC2 backend까�
 Redis는 현재 EC2 내부에서 local service로 실행 중이며, Redis 미실행으로 발생했던 Kakao login 실패 문제는 해결되었습니다.
 Auto Scaling Group도 생성되어 ALB target group과 연결되었습니다.
 
-현재 확인된 주소:
-
-```text
-Frontend: https://d197d07kgig7vi.cloudfront.net
-API test: https://d197d07kgig7vi.cloudfront.net/api/rooms
-ALB: http://taxi-team9-alb-2054411194.ap-northeast-2.elb.amazonaws.com
-```
-
-주요 AWS 리소스:
-
-```text
-EC2 instance: taxi-team9-ec2
-Public IP: 13.124.236.48
-S3 bucket: taxi-team9-frontend-s3
-Target group: taxi-team9-tg
-Auto Scaling Group: taxi-team9-asg
-Launch template: taxi-team9-launch-template1
-```
-
-완료된 작업:
-
-* EC2에서 FastAPI backend 실행
-* `taxi-backend.service` systemd service 설정
-* Redis 설치 및 실행
-* `/health` endpoint와 ALB health check 확인
-* S3에 frontend build 파일 업로드
-* CloudFront로 frontend HTTPS 접속 확인
-* CloudFront `/api/*` behavior를 ALB로 연결
-* CloudFront `/ws/*` behavior를 ALB로 연결
-* HTTPS frontend에서 HTTP ALB를 직접 호출하던 mixed content 문제 해결
-* backend WebSocket library 문제 해결
-* WebSocket 연결이 backend에서 accepted 되는 것 확인
-* Auto Scaling용 AMI, Launch Template, Auto Scaling Group 생성
-
-중요한 남은 이슈:
-
-* Auto Scaling은 동작하지만 local Redis 때문에 multi-instance session 문제가 발생할 수 있음
-* 안정적인 확장 구조를 위해 ElastiCache Redis가 필요함
-* Room search, settlement, map marker, participant count 기능은 추가 확인 필요
-* Kakao gender 기능은 consent review 때문에 demo에서는 optional 처리 권장
+팀 변경사항(`20260606_1519.md`) 기준으로 backend에는 `/health` endpoint가 추가/확인되었고, Kakao gender review 지연 문제를 피하기 위해 성별 제한 로직은 제거되었습니다.
+Frontend에는 `.map()` crash 방지, Linux import path 대소문자 수정, 방 생성 빈칸 validation이 반영되었습니다.
 
 ---
 
-## 1. Current Architecture
+## 🧭 Current AWS Resources
 
-The current deployed architecture is:
+| Resource | Value |
+| --- | --- |
+| 🌐 CloudFront | `https://d197d07kgig7vi.cloudfront.net` |
+| 🪣 S3 bucket | `taxi-team9-frontend-s3` |
+| ⚖️ ALB | `taxi-team9-alb-2054411194.ap-northeast-2.elb.amazonaws.com` |
+| 🖥️ EC2 instance | `taxi-team9-ec2` |
+| 🔑 Public IP | `13.124.236.48` |
+| 🎯 Target group | `taxi-team9-tg` |
+| 📈 Auto Scaling Group | `taxi-team9-asg` |
+| 🚀 Launch template | `taxi-team9-launch-template1` |
+| 🧠 Redis | Local Redis on EC2, `127.0.0.1:6379` |
 
-```text
-User Browser
--> CloudFront HTTPS
--> S3 React frontend
+---
 
-User Browser
--> CloudFront HTTPS / WSS
--> CloudFront behavior /api/* and /ws/*
--> Application Load Balancer
--> EC2 FastAPI backend
--> local Redis on EC2
+## 🏗️ Architecture Overview
+
+```mermaid
+flowchart TD
+    USER["👤 User Browser"] --> CF["🌐 CloudFront HTTPS/WSS"]
+    CF -->|"Frontend"| S3["🪣 S3 Static Hosting"]
+    CF -->|"/api/*"| ALB["⚖️ Application Load Balancer"]
+    CF -->|"/ws/*"| ALB
+    ALB --> TG["🎯 Target Group taxi-team9-tg"]
+    TG --> EC2A["🖥️ Original EC2 FastAPI"]
+    TG --> EC2B["🖥️ Auto Scaling EC2 FastAPI"]
+    EC2A --> REDISA["🧠 Local Redis A"]
+    EC2B --> REDISB["🧠 Local Redis B"]
 ```
 
-Main AWS resources:
+### ⭐ Target Production Architecture
 
-```text
-EC2 instance: taxi-team9-ec2
-Public IP: 13.124.236.48
-ALB: taxi-team9-alb-2054411194.ap-northeast-2.elb.amazonaws.com
-CloudFront: https://d197d07kgig7vi.cloudfront.net
-S3 bucket: taxi-team9-frontend-s3
-Target group: taxi-team9-tg
-Auto Scaling Group: taxi-team9-asg
-Launch template: taxi-team9-launch-template1
+```mermaid
+flowchart LR
+    USER["👤 Users"] --> CF["🌐 CloudFront"]
+    CF --> S3["🪣 S3 Frontend"]
+    CF --> ALB["⚖️ ALB"]
+    ALB --> EC2A["🖥️ EC2 A"]
+    ALB --> EC2B["🖥️ EC2 B"]
+    EC2A --> REDIS["🧠 ElastiCache Redis"]
+    EC2B --> REDIS
+    EC2A --> RDS["🗄️ RDS PostgreSQL"]
+    EC2B --> RDS
 ```
 
 ---
 
-## 2. Problems Fixed
+## ✅ 1. Problems Fixed
 
-### 2.1 SSH Access Problem
+### 1.1 SSH Access Problem
 
-At first, SSH to EC2 failed with timeout:
+Initial SSH access failed:
 
 ```text
 ssh: connect to host 13.124.236.48 port 22: Connection timed out
 ```
 
-The reason was the EC2 security group only allowed SSH from an old IP address.
-It was fixed by updating the inbound SSH rule to allow the current administrator IP.
+Cause:
 
-Current EC2 security group important rules:
+The EC2 Security Group allowed SSH only from an old IP address.
 
-```text
-SSH 22 from user IP
-TCP 8000 from ALB security group
-```
+Fix:
 
-### 2.2 Backend Health Check Problem
+The inbound SSH rule was updated to allow the current administrator IP.
 
-ALB health check needed `/health`.
+Important EC2 Security Group rules:
+
+| Port | Source | Purpose |
+| ---: | --- | --- |
+| 22 | Administrator IP only | SSH access |
+| 8000 | ALB Security Group | FastAPI backend traffic |
+
+---
+
+### 1.2 Backend Health Check Problem
+
+ALB health check required `/health`.
 
 Backend route:
 
@@ -126,17 +112,21 @@ curl http://127.0.0.1:8000/health
 curl http://taxi-team9-alb-2054411194.ap-northeast-2.elb.amazonaws.com/health
 ```
 
-Expected result:
+Expected:
 
 ```json
 {"status":"ok"}
 ```
 
-After this, the ALB target group became healthy.
+Result:
 
-### 2.3 Kakao Login Failure
+The ALB target group became healthy.
 
-Kakao login initially failed with "server login failure".
+---
+
+### 1.3 Kakao Login Failure
+
+Kakao login initially failed with server login failure.
 
 Backend log:
 
@@ -167,18 +157,22 @@ Expected:
 PONG
 ```
 
-After starting Redis, Kakao login worked successfully.
+Result:
 
-### 2.4 Mixed Content Problem
+After Redis started, Kakao login worked successfully.
 
-When frontend was opened from CloudFront HTTPS, it tried to call HTTP ALB:
+---
+
+### 1.4 Mixed Content Problem
+
+CloudFront served the frontend over HTTPS, but the frontend tried to call the HTTP ALB directly:
 
 ```text
 https://d197d07kgig7vi.cloudfront.net
 -> http://taxi-team9-alb-2054411194.ap-northeast-2.elb.amazonaws.com/api/rooms
 ```
 
-The browser blocked it with Mixed Content error.
+Browser blocked the request as Mixed Content.
 
 Fix:
 
@@ -188,7 +182,7 @@ CloudFront was configured with an ALB origin and behavior:
 /api/* -> taxi-team9-alb-origin
 ```
 
-Frontend production environment was changed to:
+Frontend production environment:
 
 ```env
 VITE_API_BASE_URL=https://d197d07kgig7vi.cloudfront.net
@@ -196,101 +190,51 @@ VITE_WS_BASE_URL=wss://d197d07kgig7vi.cloudfront.net
 VITE_KAKAO_MAP_KEY=c4648d358cb7259b86ffaae9a0b8e7b3
 ```
 
-After rebuilding and uploading `dist/` to S3, API requests went through HTTPS CloudFront and Mixed Content was fixed.
-
-### 2.5 Frontend Build Environment Problem
-
-There were two env files:
-
-```text
-.env
-.env.production
-```
-
-`.env` was correct, but `.env.production` still had the old HTTP ALB URL:
-
-```env
-VITE_API_BASE_URL=http://taxi-team9-alb-2054411194.ap-northeast-2.elb.amazonaws.com
-```
-
-Vite used `.env.production` during `npm run build`, so the old HTTP ALB URL was embedded in the compiled JavaScript.
-
-Fix:
-
-```env
-VITE_API_BASE_URL=https://d197d07kgig7vi.cloudfront.net
-VITE_WS_BASE_URL=wss://d197d07kgig7vi.cloudfront.net
-```
-
-Verification command:
+Verification:
 
 ```bash
 grep -R "http://taxi-team9-alb" -n dist || echo "old ALB removed"
 ```
 
-### 2.6 Create Room API Problem
+---
 
-`CreateRoomPage.jsx` originally called:
+### 1.5 Frontend Runtime Problems
 
-```js
-axios.post("/api/rooms", ...)
-```
+Team branch note `20260606_1519.md` records these fixes:
 
-This sometimes returned React `index.html` instead of JSON.
+| File | Fix |
+| --- | --- |
+| `frontend/src/pages/Mainpage.jsx` | Use `data.rooms || []` to prevent `.map()` crash |
+| `frontend/src/pages/Mainpage.jsx` | Match `KakaoMap` import casing to Linux filename |
+| `frontend/src/pages/RoomPage.jsx` | Match `KakaoMap` import casing to Linux filename |
+| `frontend/src/router/Router.jsx` | Match `Mainpage` import casing to Linux filename |
+| `frontend/src/pages/CreateRoomPage.jsx` | Add validation to block empty departure, destination, or time |
 
-It was changed to use the environment variable:
-
-```js
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
-
-const response = await axios.post(
-  `${API_BASE_URL}/api/rooms`,
-  {
-    departure,
-    destination,
-    time,
-  },
-  {
-    headers: {
-      Authorization: `Bearer ${localStorage.getItem("token")}`,
-    },
-  }
-);
-```
-
-After this, room creation worked.
-
-### 2.7 Room List `.map()` Error
-
-Frontend had:
-
-```js
-rooms.map(...)
-```
-
-but sometimes `rooms` was undefined.
-
-Fix:
-
-```js
-setRooms(data.rooms || []);
-```
-
-or:
-
-```jsx
-{(rooms || []).map((room) => (...))}
-```
-
-After this, the main page stopped crashing.
+These changes reduce AWS/Linux deployment errors caused by case-sensitive paths and missing API response data.
 
 ---
 
-## 3. WebSocket / WSS / ALB Progress
+### 1.6 Backend Gender Logic Problem
 
-### 3.1 Original WebSocket Error
+Kakao gender consent/review was delayed.
+To avoid blocking the demo, gender restriction logic was hard-disabled in the backend.
 
-Browser showed repeated errors:
+Team branch note records:
+
+* `User.gender` removed
+* `Room.gender_limit` removed
+* Gender variables removed from user creation, room creation, room list, and room join logic
+* Gender validation removed from join logic
+
+This makes the demo flow simpler and avoids failed behavior caused by unavailable Kakao gender consent.
+
+---
+
+## 🔌 2. WebSocket / WSS Progress
+
+### 2.1 Original Problem
+
+Browser console showed:
 
 ```text
 WebSocket connection to 'wss://d197d07kgig7vi.cloudfront.net/ws/rooms/...' failed
@@ -299,7 +243,7 @@ WebSocket connection to 'wss://d197d07kgig7vi.cloudfront.net/ws/rooms/...' faile
 재연결 시도...
 ```
 
-### 3.2 CloudFront WebSocket Routing Fix
+### 2.2 CloudFront Routing Fix
 
 The app uses:
 
@@ -307,29 +251,26 @@ The app uses:
 /ws/rooms/{room_id}?token={token}
 ```
 
-At first, only `/api/*` was routed to ALB.
-A separate CloudFront behavior was needed:
+CloudFront needed a separate behavior:
 
 ```text
 /ws/* -> taxi-team9-alb-origin
 ```
 
-CloudFront behavior configuration:
+Configuration:
 
-```text
-Path pattern: /ws/*
-Origin: taxi-team9-alb-origin
-Viewer protocol policy: Redirect HTTP to HTTPS
-Allowed methods: GET, HEAD, OPTIONS
-Cache policy: CachingDisabled
-Origin request policy: AllViewer
-```
+| Setting | Value |
+| --- | --- |
+| Path pattern | `/ws/*` |
+| Origin | `taxi-team9-alb-origin` |
+| Viewer protocol policy | Redirect HTTP to HTTPS |
+| Allowed methods | GET, HEAD, OPTIONS |
+| Cache policy | CachingDisabled |
+| Origin request policy | AllViewer |
 
-After this, WebSocket requests reached the backend through CloudFront -> ALB -> EC2.
+### 2.3 Backend WebSocket Library Fix
 
-### 3.3 Backend WebSocket Library Problem
-
-After routing `/ws/*`, backend log showed:
+Backend log showed:
 
 ```text
 WARNING: Unsupported upgrade request.
@@ -346,55 +287,39 @@ pip install "uvicorn[standard]" websockets wsproto
 sudo systemctl restart taxi-backend
 ```
 
-After fixing, backend log showed:
+Result:
 
 ```text
 "WebSocket /ws/rooms/... " [accepted]
 connection open
 ```
 
-Browser console showed:
+Browser console:
 
 ```text
 웹소켓 연결 성공
 ```
 
-So the basic WebSocket/WSS path is now working:
+Final WebSocket path:
 
-```text
-Browser WSS
--> CloudFront /ws/*
--> ALB
--> EC2 FastAPI WebSocket
+```mermaid
+sequenceDiagram
+    participant B as 👤 Browser
+    participant C as 🌐 CloudFront
+    participant A as ⚖️ ALB
+    participant E as 🖥️ EC2 FastAPI
+
+    B->>C: wss://d197d07kgig7vi.cloudfront.net/ws/rooms/{room_id}
+    C->>A: Forward /ws/*
+    A->>E: WebSocket upgrade
+    E-->>B: Connection accepted
 ```
-
-### 3.4 Remaining WebSocket Behavior
-
-Sometimes the console still shows:
-
-```text
-웹소켓 연결 종료
-재연결 시도...
-웹소켓 연결 성공
-```
-
-Backend log showed:
-
-```text
-[익명] 님이 위치 공유를 종료했습니다.
-```
-
-This does not look like an infrastructure failure anymore.
-It appears to be frontend/client location-sharing or reconnect logic.
-The WebSocket infrastructure itself is confirmed working because the backend accepts the connection.
 
 ---
 
-## 4. Auto Scaling Progress
+## 📈 3. Auto Scaling Progress
 
-### 4.1 AMI Created
-
-An AMI was created from the working backend EC2:
+### 3.1 AMI Created
 
 ```text
 AMI name: taxi-team9-backend-working-ami
@@ -404,56 +329,50 @@ Status: Available
 
 Important note:
 
-WebSocket packages were installed after the first AMI was created, so the best practice is to create a new AMI version after the WebSocket fix.
+WebSocket packages were installed after the first AMI was created.
+Best practice is to create a new AMI version after the WebSocket fix.
 
-Recommended new AMI name:
+Recommended AMI:
 
 ```text
 taxi-team9-backend-working-ami-v2
 ```
 
-### 4.2 Launch Template Created
-
-Launch template:
+### 3.2 Launch Template Created
 
 ```text
-taxi-team9-launch-template1
-```
-
-Important launch template configuration:
-
-```text
+Launch template: taxi-team9-launch-template1
 AMI: taxi-team9-backend-working-ami
 Instance type: t3.micro
 Key pair: taxi-team9-key
 Security group: taxi-team9-ec2-sg
+```
+
 User data:
+
+```bash
 #!/bin/bash
 systemctl start redis-server
 systemctl start taxi-backend
 ```
 
-There was one mistake during setup:
+One launch template version was accidentally created without AMI ID.
+This was fixed by creating a new version with the correct AMI.
 
-A launch template version was created without AMI ID.
-This was fixed by creating a new launch template version with the correct AMI.
+### 3.3 Auto Scaling Group Created
 
-### 4.3 Auto Scaling Group Created
-
-Auto Scaling Group:
-
-```text
-Name: taxi-team9-asg
-Launch template: taxi-team9-launch-template1
-Desired capacity: 1
-Minimum capacity: 1
-Maximum capacity: 2
-Availability Zones: 2
-Scaling policy: Average CPU utilization 70%
-Health checks: EC2 + ELB
-Health check grace period: 300 seconds
-Target group: taxi-team9-tg
-```
+| Setting | Value |
+| --- | --- |
+| Name | `taxi-team9-asg` |
+| Launch template | `taxi-team9-launch-template1` |
+| Desired capacity | `1` |
+| Minimum capacity | `1` |
+| Maximum capacity | `2` |
+| Availability Zones | `2` |
+| Scaling policy | Average CPU utilization `70%` |
+| Health checks | EC2 + ELB |
+| Grace period | `300 seconds` |
+| Target group | `taxi-team9-tg` |
 
 ASG status:
 
@@ -462,18 +381,20 @@ At desired capacity
 1/1 Healthy
 ```
 
-Target group showed two healthy instances:
+Target group showed healthy targets:
 
 ```text
 i-0067c55cdb9c4d961  Healthy  <- ASG-created instance
 i-0e0ebc671848ed722  Healthy  <- original EC2 instance
 ```
 
-This confirms Auto Scaling was created and integrated with ALB.
+Result:
+
+Auto Scaling was created and integrated with ALB.
 
 ---
 
-## 5. Important Auto Scaling Issue Found
+## ⚠️ 4. Important Auto Scaling Issue
 
 After Auto Scaling added a second backend instance, API sometimes returned:
 
@@ -485,30 +406,19 @@ Reason:
 
 Current backend uses local Redis on each EC2 instance.
 
-With two backend instances:
-
-```text
-Original EC2 -> local Redis A
-ASG EC2      -> local Redis B
+```mermaid
+flowchart LR
+    LOGIN["🔐 Login request"] --> EC2A["🖥️ Original EC2"]
+    EC2A --> RA["🧠 Redis A stores token"]
+    API["📡 Next API request"] --> EC2B["🖥️ ASG EC2"]
+    EC2B --> RB["🧠 Redis B has no token"]
+    RB --> ERR["⚠️ 401 Unauthorized"]
 ```
-
-Login session token may be saved in Redis A, but the next API request may go to Redis B through ALB.
-Redis B does not know the token, so backend returns `401 Unauthorized`.
-
-This means Auto Scaling works at infrastructure level, but stable multi-instance login requires shared Redis.
 
 Correct final architecture:
 
 ```text
 Both EC2 instances -> same ElastiCache Redis
-```
-
-Temporary demo fix:
-
-```text
-Set ASG desired capacity to 0 or remove ASG instance from serving traffic during live demo.
-Keep screenshots of Auto Scaling for report.
-Use original EC2 for stable demo.
 ```
 
 Report explanation:
@@ -517,105 +427,99 @@ Report explanation:
 Auto Scaling was configured and connected to ALB successfully. During multi-instance testing, session inconsistency occurred because Redis was still local to each EC2 instance. This confirms the need to move session storage to ElastiCache Redis in the final scalable architecture.
 ```
 
----
+Temporary demo strategy:
 
-## 6. Current Working Status
-
-Confirmed working:
-
-```text
-Kakao login: working
-Redis session on single EC2: working
-CloudFront frontend: working
-ALB /health: working
-Room creation: working
-Room join API: working
-WebSocket connection: accepted by backend
-Auto Scaling Group: created
-Target Group: healthy targets
-```
-
-Known remaining issues:
-
-```text
-Room search feature missing or incomplete
-Settlement feature missing or incomplete
-Map markers not displaying properly
-Participant count does not always update after joining
-Gender feature unreliable because Kakao gender consent requires review
-Multi-instance session issue because Redis is local, not shared ElastiCache
-```
+* Use original EC2 for stable live demo
+* Keep Auto Scaling screenshots for report evidence
+* Explain that ElastiCache Redis is required for stable multi-instance login/session behavior
 
 ---
 
-## 7. Kakao Gender/API Key Notes
+## 🧪 5. Current Working Status
 
-Current Kakao JavaScript key used:
+| Feature | Status |
+| --- | --- |
+| Kakao login | ✅ Working |
+| Redis session on single EC2 | ✅ Working |
+| CloudFront frontend | ✅ Working |
+| ALB `/health` | ✅ Working |
+| Room creation | ✅ Working |
+| Room join API | ✅ Working |
+| WebSocket connection | ✅ Accepted by backend |
+| Auto Scaling Group | ✅ Created |
+| Target Group | ✅ Healthy targets |
 
-```text
-c4648d358cb7259b86ffaae9a0b8e7b3
-```
-
-No separate AWS Kakao API key was created.
-The existing Kakao JavaScript key was used, and AWS domains were added in Kakao Developers.
-
-Gender issue:
-
-Kakao gender requires consent item/review.
-The review can take 3-5 business days, so for deadline/demo it is better to exclude gender restriction or treat gender as optional.
-
-Recommended backend temporary fix:
-
-```python
-if room.gender_limit != "unknown" and user.gender != "unknown" and room.gender_limit != user.gender:
-    raise HTTPException(status_code=403, detail="동성만 참여 가능한 방입니다.")
-```
-
-Or temporarily disable gender check for demo.
-
----
-
-## 8. Commands Used for Verification
+Verification commands:
 
 ```bash
 systemctl status taxi-backend
 systemctl status redis-server
+redis-cli ping
 curl http://127.0.0.1:8000/health
 curl http://taxi-team9-alb-2054411194.ap-northeast-2.elb.amazonaws.com/health
 curl https://d197d07kgig7vi.cloudfront.net/api/rooms
-redis-cli ping
-```
-
-Frontend build verification:
-
-```bash
-grep -R "http://taxi-team9-alb" -n dist || echo "old ALB removed"
 ```
 
 ---
 
-## 9. Final Architecture Explanation
+## 📋 6. Known Remaining Issues
 
-For the current demo, Redis is running locally on the EC2 instance.
-This is acceptable for a single-instance demo because it verifies login session handling and WebSocket backend flow.
-
-Auto Scaling has been created and connected to the ALB.
-However, stable multi-instance operation requires shared Redis because session data must be available to every backend instance.
-
-For a production architecture:
-
-* Replace local Redis with ElastiCache Redis
-* Replace local/SQLite database usage with RDS PostgreSQL
-* Keep CloudFront in front of S3 frontend hosting
-* Keep ALB in front of EC2 backend instances
-* Use Auto Scaling with a shared session store
-* Create a new backend AMI after installing WebSocket packages
+| Area | Issue | Cloud-side meaning |
+| --- | --- | --- |
+| 🔍 Room search | Missing or incomplete | Needs app-level verification |
+| 💰 Settlement | Missing or incomplete | Needs app-level verification |
+| 🗺️ Map marker | Not always displaying properly | Needs frontend/API data check |
+| 👥 Participant count | May not update immediately | Needs API/WebSocket sync check |
+| 🚻 Gender | Removed/disabled due to Kakao review | Demo should treat gender as optional |
+| 🧠 Redis | Local per EC2 | Needs ElastiCache for multi-instance stability |
+| 🗄️ Database | Local/SQLite possible in demo | Needs RDS PostgreSQL for production |
 
 ---
 
-## 10. Short Summary
+## 📸 7. Final Presentation Evidence Checklist
 
-The AWS deployment reached a working state with CloudFront HTTPS frontend, S3 static hosting, ALB, EC2 FastAPI backend, Redis on EC2, WebSocket routing, and Auto Scaling Group.
-Major fixes included adding `/health`, starting Redis, changing frontend API env from HTTP ALB to HTTPS CloudFront, adding CloudFront behaviors for `/api/*` and `/ws/*`, installing WebSocket packages in the backend venv, and creating an ASG with desired 1, minimum 1, maximum 2, CPU target 70%.
-WebSocket now reaches FastAPI and shows `[accepted] connection open`.
-Auto Scaling works, but multi-instance session stability requires shared ElastiCache Redis because local Redis causes `401 Unauthorized` when requests are routed to different instances.
+* 🖥️ EC2 instance running
+* ⚙️ `taxi-backend.service` active
+* 🧠 `redis-server.service` active
+* 💚 ALB target group healthy
+* 🌐 CloudFront distribution
+* 🪣 S3 frontend files
+* 🔀 CloudFront `/api/*` behavior
+* 🔌 CloudFront `/ws/*` behavior
+* 📈 Auto Scaling Group
+* 🚀 Launch Template
+* 🧪 `/api/rooms` response through CloudFront
+* ✅ WebSocket accepted backend log
+* 🧭 Final architecture diagram
+
+---
+
+## 🏁 8. Final Explanation
+
+The AWS deployment reached a working demo state with:
+
+```text
+CloudFront HTTPS frontend
+S3 static hosting
+ALB backend routing
+EC2 FastAPI backend
+local Redis on EC2
+WebSocket/WSS routing
+Auto Scaling Group
+```
+
+Major fixes included adding `/health`, starting Redis, changing frontend API/WSS env to CloudFront, adding CloudFront behaviors for `/api/*` and `/ws/*`, installing WebSocket packages, removing gender restriction logic, and creating an ASG with desired `1`, minimum `1`, maximum `2`, and CPU target `70%`.
+
+Auto Scaling works at the infrastructure level.
+However, multi-instance session stability requires ElastiCache Redis because local Redis causes session mismatch when ALB routes requests to different EC2 instances.
+
+Final production recommendation:
+
+```mermaid
+flowchart TD
+    CF["🌐 CloudFront"] --> S3["🪣 S3 Frontend"]
+    CF --> ALB["⚖️ ALB"]
+    ALB --> ASG["📈 Auto Scaling EC2 Backends"]
+    ASG --> REDIS["🧠 ElastiCache Redis"]
+    ASG --> RDS["🗄️ RDS PostgreSQL"]
+```
