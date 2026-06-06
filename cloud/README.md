@@ -1,58 +1,39 @@
-# Taxi Mate Cloud
+# Taxi Team9 Cloud
 
 택시 동승 매칭 서비스의 AWS 클라우드 배포 및 인프라 설계 파트입니다.
 
-Detailed plan: [CLOUD_DEPLOYMENT_PLAN.md](./CLOUD_DEPLOYMENT_PLAN.md)
-
-Frontend deployment status: [FRONTEND_DEPLOYMENT_STATUS.md](./FRONTEND_DEPLOYMENT_STATUS.md)
-
-AWS connection start plan: [AWS_CONNECTION_START_PLAN.md](./AWS_CONNECTION_START_PLAN.md)
-
-Current AWS progress report: [CLOUD_PROGRESS_REPORT.md](./CLOUD_PROGRESS_REPORT.md)
+Detailed progress report: [CLOUD_PROGRESS_REPORT.md](./CLOUD_PROGRESS_REPORT.md)
 
 ---
 
-# Korean
+## Korean
 
 ## 프로젝트 소개
 
 Taxi Mate는 React 프론트엔드와 FastAPI 백엔드를 기반으로 한 실시간 위치 기반 택시 동승 매칭 서비스입니다.
-클라우드 파트는 이 서비스를 로컬 환경이 아닌 AWS 환경에서 안정적으로 실행할 수 있도록 배포 구조를 설계하고 구성하는 역할을 담당합니다.
+클라우드 파트는 AWS에서 프론트엔드 정적 호스팅, 백엔드 서버 운영, API 라우팅, WebSocket 연결, Redis 세션 처리, Auto Scaling 구조를 준비합니다.
 
-주요 목표는 프론트엔드 정적 파일 배포, 백엔드 서버 운영, 데이터베이스 연결, Redis 기반 세션 및 WebSocket Pub/Sub 처리, 트래픽 증가 상황을 고려한 확장 구조 설계입니다.
-
----
-
-## 기술 스택
-
-* AWS EC2
-* AWS S3
-* AWS CloudFront
-* AWS Application Load Balancer
-* AWS RDS PostgreSQL
-* AWS ElastiCache for Redis
-* AWS Auto Scaling Group
-* FastAPI
-* React + Vite
-* WebSocket
+현재 데모 기준으로는 CloudFront, S3, ALB, EC2, local Redis on EC2, Auto Scaling Group 구성이 준비되었습니다.
 
 ---
 
-## 클라우드 아키텍처
+## 현재 AWS 구조
 
 ```text
-사용자 브라우저
+User Browser
   |
-  | Frontend
+  | HTTPS
   v
 CloudFront
+  | \
+  |  \-- /api/* -> Application Load Balancer
+  |  \-- /ws/*  -> Application Load Balancer
   |
   v
-S3
+S3 frontend bucket
 
-사용자 브라우저
+CloudFront /api/* and /ws/*
   |
-  | REST API / WebSocket
   v
 Application Load Balancer
   |
@@ -60,235 +41,150 @@ Application Load Balancer
 EC2 FastAPI Backend
   |
   v
-RDS PostgreSQL + ElastiCache Redis
+Local Redis on EC2
+
+Auto Scaling Group
+  |
+  v
+Launch Template -> EC2 backend instances
 ```
 
----
-
-## 현재 준비 내용
-
-* AWS 기반 배포 구조 설계
-* S3 + CloudFront 기반 프론트엔드 정적 호스팅 계획
-* EC2 기반 FastAPI 백엔드 배포 계획
-* Application Load Balancer를 통한 백엔드 트래픽 분산 계획
-* RDS PostgreSQL을 이용한 최종 데이터베이스 구조 계획
-* ElastiCache Redis를 이용한 세션 관리 및 WebSocket Pub/Sub 구조 계획
-* Auto Scaling 상황에서 WebSocket 연결이 끊길 수 있는 문제와 재연결 대응 방안 정리
-* 최신 프론트엔드 구현 상태 확인: Kakao 로그인, token 저장, 방 생성/참여 API, WebSocket 재연결 로직 구현 확인
-* 현재 localtunnel 테스트 페이지 기준 AWS 연결 시작 가능 여부 정리
-* EC2 테스트 backend 실행 및 systemd 상시 실행 확인
-* S3 bucket 생성 및 frontend build 파일 업로드
-* CloudFront distribution 생성 및 S3 origin 연결
-
----
-
-## 배포 전 확인 사항
-
-### Frontend
-
-프론트엔드는 배포 환경에서 `localhost`, `127.0.0.1`을 사용하면 안 됩니다.
-현재 프론트엔드에는 아직 `http://localhost:8000`, `http://127.0.0.1:8000`, `ws://127.0.0.1:8000` 주소가 남아 있으므로 AWS 배포 전 환경 변수 방식으로 변경되어야 합니다.
-
-대신 환경 변수를 사용합니다.
-
-```env
-VITE_API_BASE_URL=http://ALB-DNS-NAME
-VITE_WS_BASE_URL=ws://ALB-DNS-NAME
-VITE_KAKAO_MAP_KEY=your_kakao_key
-```
-
-HTTPS 적용 후에는 다음과 같이 변경합니다.
-
-```env
-VITE_API_BASE_URL=https://api-domain
-VITE_WS_BASE_URL=wss://api-domain
-```
-
-프론트엔드 빌드 결과물은 다음 경로에 생성됩니다.
+### 현재 리소스
 
 ```text
-frontend/dist
+EC2 instance: taxi-team9-ec2
+Public IP: 13.124.236.48
+ALB: taxi-team9-alb-2054411194.ap-northeast-2.elb.amazonaws.com
+CloudFront: https://d197d07kgig7vi.cloudfront.net
+S3 bucket: taxi-team9-frontend-s3
+Target group: taxi-team9-tg
+Auto Scaling Group: taxi-team9-asg
+Launch template: taxi-team9-launch-template1
 ```
 
-S3에는 `dist` 폴더 자체가 아니라 `dist` 안의 파일들을 업로드합니다.
+---
 
-### Backend
+## 완료된 작업
 
-백엔드는 ALB Health Check를 위해 `/health` API가 필요합니다.
+* EC2 instance 생성 및 SSH 접속 문제 해결
+* FastAPI backend를 EC2에서 실행
+* backend를 `taxi-backend.service` systemd service로 상시 실행
+* Redis 설치 및 실행
+* Redis 미실행으로 발생한 Kakao login failure 해결
+* `/health` endpoint 정상 응답 확인
+* ALB target group health check 성공
+* S3 bucket에 frontend build 파일 업로드
+* CloudFront distribution 생성
+* CloudFront에서 frontend HTTPS 접속 확인
+* CloudFront `/api/*` behavior를 ALB로 연결
+* CloudFront `/ws/*` behavior를 ALB로 연결
+* HTTPS frontend가 HTTP ALB를 직접 호출하던 mixed content 문제 해결
+* frontend production env를 CloudFront HTTPS/WSS 주소로 변경
+* backend WebSocket package 문제 해결
+* WebSocket이 CloudFront -> ALB -> EC2 FastAPI로 도달하는 것 확인
+* Auto Scaling용 AMI, Launch Template, Auto Scaling Group 생성
+* Auto Scaling Group을 ALB target group과 연결
 
-```python
-@app.get("/health")
-def health():
-    return {"status": "ok"}
+---
+
+## 현재 확인된 동작
+
+```bash
+curl https://d197d07kgig7vi.cloudfront.net/api/rooms
 ```
 
-백엔드는 로컬 주소를 코드에 직접 작성하지 않고 환경 변수를 사용해야 합니다.
+위 요청이 정상적으로 room list JSON을 반환합니다.
 
-```env
-DATABASE_URL=...
-REDIS_URL=...
-ALLOWED_ORIGINS=...
-```
-
-첫 데모에서는 EC2에서 SQLite를 임시로 사용할 수 있습니다. 단, 보고서에는 아래 내용을 명확히 작성합니다.
+현재 확인된 상태:
 
 ```text
-SQLite is used only for demo. Final architecture uses RDS PostgreSQL.
+Kakao login: working
+Redis session on single EC2: working
+CloudFront frontend: working
+ALB /health: working
+Room creation: working
+Room join API: working
+WebSocket connection: accepted by backend
+Auto Scaling Group: created
+Target Group: healthy targets
 ```
 
 ---
 
-## 배포 구조
+## 중요한 Auto Scaling 이슈
 
-### Frontend Deployment
+Auto Scaling은 인프라 레벨에서 생성 및 ALB 연결까지 완료되었습니다.
+하지만 현재 Redis가 각 EC2 instance 내부에서 local Redis로 동작하기 때문에 여러 backend instance가 동시에 traffic을 받으면 session 문제가 발생할 수 있습니다.
 
-* `npm run build` 실행
-* `frontend/dist` 내부 파일을 S3에 업로드
-* CloudFront 배포 생성
-* Default root object를 `index.html`로 설정
-* React Router를 위해 403, 404 응답을 `/index.html`로 연결
+문제 구조:
 
-### Backend Deployment
+```text
+Original EC2 -> local Redis A
+ASG EC2      -> local Redis B
+```
 
-* Ubuntu EC2 인스턴스 생성
-* Python 가상환경 구성
-* FastAPI 의존성 설치
-* Uvicorn으로 백엔드 실행
-* `systemd`를 이용해 백엔드 서버 상시 실행
-* `/health` 응답 확인
+로그인 session token이 Redis A에 저장된 뒤 다음 API 요청이 Redis B가 있는 instance로 전달되면 token을 찾지 못해 `401 Unauthorized`가 발생할 수 있습니다.
 
-### Load Balancer
+따라서 최종 scalable architecture에서는 두 EC2 instance가 같은 ElastiCache Redis를 사용해야 합니다.
 
-* Target Group 생성
-* Health check path를 `/health`로 설정
-* ALB를 EC2 백엔드와 연결
-* EC2 8000번 포트는 ALB Security Group에서만 접근 가능하도록 제한
+```text
+Both EC2 instances -> same ElastiCache Redis
+```
 
-### Database and Cache
-
-* 최종 DB는 RDS PostgreSQL 사용
-* Redis는 ElastiCache 사용
-* RDS와 Redis는 Public Access를 비활성화
-* EC2 Security Group에서만 RDS, Redis에 접근 가능하도록 설정
+데모 안정성을 위해 live demo에서는 original EC2 중심으로 테스트하고, Auto Scaling은 구성 완료 screenshot과 architecture 설명으로 사용하는 것이 안전합니다.
 
 ---
 
-## 주요 문제 및 해결 계획
+## 남은 이슈
 
-### WebSocket 연결 문제
-
-Auto Scaling으로 EC2 인스턴스가 종료될 때 기존 WebSocket 연결이 끊길 수 있습니다.
-
-해결 계획:
-
-* Redis Pub/Sub을 사용해 여러 백엔드 인스턴스 간 위치 데이터를 공유
-* 프론트엔드에서 WebSocket 자동 재연결 로직 구현
-* ALB Deregistration Delay를 사용해 종료 대상 인스턴스의 기존 연결을 잠시 유지
-* 클라이언트가 연결 해제 후 같은 방으로 다시 연결할 수 있도록 room id와 token 관리
-
-### 보안 문제
-
-해결 계획:
-
-* EC2 22번 포트는 내 IP에서만 접근 허용
-* EC2 8000번 포트는 ALB에서만 접근 허용
-* RDS와 Redis는 Private Subnet에서 운영
-* 소스코드에 비밀번호, DB 주소, API Key를 직접 작성하지 않음
+* Room search feature가 아직 미완성일 수 있음
+* Settlement feature가 아직 미완성일 수 있음
+* Map marker 표시가 불안정할 수 있음
+* Join 이후 participant count가 항상 바로 갱신되지 않을 수 있음
+* Kakao gender consent/review 문제로 gender 제한 기능은 demo에서 optional 처리 권장
+* Multi-instance 안정성을 위해 local Redis를 ElastiCache Redis로 교체해야 함
 
 ---
 
-## 제출 및 발표 자료
+## 다음 TODO
 
-보고서와 발표를 위해 준비할 화면:
-
-* EC2 인스턴스 실행 화면
-* Backend `/health` 응답 화면
-* S3 버킷 업로드 화면
-* CloudFront 배포 화면
-* ALB Target Group Healthy 상태 화면
-* CloudFront 주소로 접속한 프론트엔드 화면
-* Kakao Map 화면
-* 방 생성 및 참여 테스트 화면
-* AWS 아키텍처 다이어그램
+* Auto Scaling screenshot 정리
+* ALB target group healthy screenshot 정리
+* WebSocket accepted log screenshot 정리
+* CloudFront `/api/*`, `/ws/*` behavior screenshot 정리
+* 데모에서는 local Redis on EC2 사용, 최종 구조에서는 ElastiCache Redis로 확장 필요하다고 설명
+* 최종 구조에서 RDS PostgreSQL 적용 가능성 설명
 
 ---
 
-## Cloud 담당
-
-* AWS 배포 아키텍처 설계
-* S3 + CloudFront 프론트엔드 배포 계획
-* EC2 + ALB 백엔드 배포 계획
-* RDS PostgreSQL 데이터베이스 구성 계획
-* ElastiCache Redis 세션 및 Pub/Sub 구성 계획
-* Auto Scaling 및 WebSocket 재연결 대응 계획
-* 최종 보고서용 클라우드 구성 자료 정리
-
----
-
-## 진행 상황
-
-* [x] AWS 전체 아키텍처 설계
-* [x] S3 + CloudFront 프론트엔드 배포 계획 정리
-* [x] EC2 백엔드 배포 계획 정리
-* [x] ALB 연결 및 Security Group 계획 정리
-* [x] RDS PostgreSQL 전환 계획 정리
-* [x] Redis / ElastiCache WebSocket Pub/Sub 구조 정리
-* [x] 최신 프론트엔드 배포 상태 확인
-* [x] AWS 연결 시작 계획 정리
-* [x] EC2 테스트 backend 배포 및 `/health` 확인
-* [x] systemd로 테스트 backend 상시 실행 설정
-* [x] S3 bucket 생성 및 frontend build 파일 업로드
-* [x] CloudFront distribution 생성
-* [ ] 실제 프로젝트 backend 코드 EC2 배포
-* [ ] Target Group / ALB health check 정상화
-* [ ] frontend local URL 제거 후 새 build 파일 S3 재업로드
-* [ ] ALB 연결 테스트
-* [ ] RDS 및 ElastiCache 적용
-* [ ] 최종 스크린샷 및 보고서 정리
-
----
-
-# English
+## English
 
 ## Project Introduction
 
-Taxi Mate is a real-time location-based taxi sharing service built with a React frontend and a FastAPI backend.
-The cloud part focuses on designing and preparing the AWS infrastructure so the service can run outside the local development environment.
+Taxi Mate is a real-time taxi ride-sharing service built with a React frontend and FastAPI backend.
+The cloud part prepares AWS frontend hosting, backend operation, API routing, WebSocket routing, Redis session handling, and Auto Scaling.
 
-The main goals are frontend static hosting, backend server deployment, database connection, Redis-based session and WebSocket Pub/Sub handling, and scalable infrastructure design for traffic growth.
-
----
-
-## Tech Stack
-
-* AWS EC2
-* AWS S3
-* AWS CloudFront
-* AWS Application Load Balancer
-* AWS RDS PostgreSQL
-* AWS ElastiCache for Redis
-* AWS Auto Scaling Group
-* FastAPI
-* React + Vite
-* WebSocket
+For the current demo, CloudFront, S3, ALB, EC2, local Redis on EC2, and Auto Scaling Group have been prepared.
 
 ---
 
-## Cloud Architecture
+## Current AWS Architecture
 
 ```text
 User Browser
   |
-  | Frontend
+  | HTTPS
   v
 CloudFront
+  | \
+  |  \-- /api/* -> Application Load Balancer
+  |  \-- /ws/*  -> Application Load Balancer
   |
   v
-S3
+S3 frontend bucket
 
-User Browser
+CloudFront /api/* and /ws/*
   |
-  | REST API / WebSocket
   v
 Application Load Balancer
   |
@@ -296,189 +192,116 @@ Application Load Balancer
 EC2 FastAPI Backend
   |
   v
-RDS PostgreSQL + ElastiCache Redis
+Local Redis on EC2
+
+Auto Scaling Group
+  |
+  v
+Launch Template -> EC2 backend instances
 ```
 
----
-
-## Current Preparation
-
-* Designed the AWS deployment architecture
-* Planned S3 + CloudFront static hosting for the frontend
-* Planned EC2 deployment for the FastAPI backend
-* Planned backend traffic routing through Application Load Balancer
-* Planned final database architecture with RDS PostgreSQL
-* Planned session management and WebSocket Pub/Sub with ElastiCache Redis
-* Documented the WebSocket disconnection risk during Auto Scaling and the reconnect strategy
-* Checked latest frontend implementation: Kakao login, token storage, room create/join APIs, and WebSocket reconnect logic are now present
-* Documented that AWS connection preparation can begin based on the current localtunnel test page
-* Verified test backend on EC2 with systemd continuous execution
-* Created S3 bucket and uploaded frontend build files
-* Created CloudFront distribution connected to the S3 origin
-
----
-
-## Pre-Deployment Checklist
-
-### Frontend
-
-The deployed frontend must not use `localhost` or `127.0.0.1`.
-The current frontend still contains `http://localhost:8000`, `http://127.0.0.1:8000`, and `ws://127.0.0.1:8000`, so these must be replaced with environment variables before AWS deployment.
-
-Use environment variables instead.
-
-```env
-VITE_API_BASE_URL=http://ALB-DNS-NAME
-VITE_WS_BASE_URL=ws://ALB-DNS-NAME
-VITE_KAKAO_MAP_KEY=your_kakao_key
-```
-
-After HTTPS is ready, change them to:
-
-```env
-VITE_API_BASE_URL=https://api-domain
-VITE_WS_BASE_URL=wss://api-domain
-```
-
-The frontend build output is:
+### Current Resources
 
 ```text
-frontend/dist
+EC2 instance: taxi-team9-ec2
+Public IP: 13.124.236.48
+ALB: taxi-team9-alb-2054411194.ap-northeast-2.elb.amazonaws.com
+CloudFront: https://d197d07kgig7vi.cloudfront.net
+S3 bucket: taxi-team9-frontend-s3
+Target group: taxi-team9-tg
+Auto Scaling Group: taxi-team9-asg
+Launch template: taxi-team9-launch-template1
 ```
 
-Upload the files inside `dist` to S3, not the `dist` folder itself.
+---
 
-### Backend
+## Completed Work
 
-The backend needs a `/health` endpoint for ALB health checks.
+* Fixed EC2 SSH access
+* Ran FastAPI backend on EC2
+* Configured backend as `taxi-backend.service`
+* Installed and started Redis
+* Fixed Kakao login failure caused by Redis not running
+* Verified `/health` endpoint
+* Confirmed ALB target group health check
+* Uploaded frontend build files to S3
+* Created CloudFront distribution
+* Verified frontend HTTPS access through CloudFront
+* Configured CloudFront `/api/*` behavior to forward requests to ALB
+* Configured CloudFront `/ws/*` behavior to forward WebSocket requests to ALB
+* Fixed mixed content issue from HTTPS frontend calling HTTP ALB directly
+* Updated frontend production env to use CloudFront HTTPS/WSS
+* Fixed backend WebSocket package issue
+* Confirmed WebSocket reaches FastAPI through CloudFront -> ALB -> EC2
+* Created AMI, Launch Template, and Auto Scaling Group
+* Connected Auto Scaling Group to the ALB target group
 
-```python
-@app.get("/health")
-def health():
-    return {"status": "ok"}
+---
+
+## Current Working Status
+
+```bash
+curl https://d197d07kgig7vi.cloudfront.net/api/rooms
 ```
 
-The backend should use environment variables instead of hardcoded local addresses.
+This returns room list JSON successfully.
 
-```env
-DATABASE_URL=...
-REDIS_URL=...
-ALLOWED_ORIGINS=...
-```
-
-For the first demo, SQLite can be used temporarily on EC2. The report should clearly state:
+Confirmed status:
 
 ```text
-SQLite is used only for demo. Final architecture uses RDS PostgreSQL.
+Kakao login: working
+Redis session on single EC2: working
+CloudFront frontend: working
+ALB /health: working
+Room creation: working
+Room join API: working
+WebSocket connection: accepted by backend
+Auto Scaling Group: created
+Target Group: healthy targets
 ```
 
 ---
 
-## Deployment Structure
+## Important Auto Scaling Issue
 
-### Frontend Deployment
+Auto Scaling is created and connected to ALB successfully.
+However, Redis is currently local to each EC2 instance, so multiple backend instances can cause session inconsistency.
 
-* Run `npm run build`
-* Upload files inside `frontend/dist` to S3
-* Create a CloudFront distribution
-* Set default root object to `index.html`
-* Route 403 and 404 responses to `/index.html` for React Router
+Problem:
 
-### Backend Deployment
+```text
+Original EC2 -> local Redis A
+ASG EC2      -> local Redis B
+```
 
-* Create an Ubuntu EC2 instance
-* Set up a Python virtual environment
-* Install FastAPI dependencies
-* Run the backend with Uvicorn
-* Keep the backend running with `systemd`
-* Verify the `/health` response
+If the login session token is saved in Redis A and the next API request is routed to Redis B, the backend may return `401 Unauthorized`.
 
-### Load Balancer
+The correct final scalable architecture is:
 
-* Create a Target Group
-* Set health check path to `/health`
-* Connect ALB to the EC2 backend
-* Restrict EC2 port `8000` access to the ALB Security Group only
+```text
+Both EC2 instances -> same ElastiCache Redis
+```
 
-### Database and Cache
-
-* Use RDS PostgreSQL as the final database
-* Use ElastiCache for Redis
-* Disable public access for RDS and Redis
-* Allow RDS and Redis access only from the EC2 Security Group
+For a stable live demo, use the original EC2 path and keep Auto Scaling screenshots for the report and presentation.
 
 ---
 
-## Main Problems and Solution Plan
+## Remaining Issues
 
-### WebSocket Connection Problem
-
-When an EC2 instance is terminated by Auto Scaling, existing WebSocket connections may be disconnected.
-
-Solution plan:
-
-* Use Redis Pub/Sub to share location data across backend instances
-* Add WebSocket auto-reconnect logic on the frontend
-* Use ALB Deregistration Delay to keep existing connections briefly during scale-in
-* Manage room id and token so clients can reconnect to the same room
-
-### Security Problem
-
-Solution plan:
-
-* Allow EC2 SSH port `22` only from my IP
-* Allow EC2 backend port `8000` only from the ALB
-* Run RDS and Redis in private network areas
-* Do not hardcode passwords, DB URLs, or API keys in source code
+* Room search feature may be incomplete
+* Settlement feature may be incomplete
+* Map markers may not display reliably
+* Participant count may not always update immediately after joining
+* Gender restriction should be optional for demo because Kakao gender consent requires review
+* Multi-instance stability requires replacing local Redis with ElastiCache Redis
 
 ---
 
-## Report and Presentation Evidence
+## Next TODO
 
-Prepare screenshots of:
-
-* EC2 instance running
-* Backend `/health` response
-* S3 bucket with frontend files
-* CloudFront distribution
-* ALB Target Group healthy status
-* Frontend opened from CloudFront
-* Kakao Map page
-* Room create/join test
-* AWS architecture diagram
-
----
-
-## Cloud Responsibility
-
-* AWS deployment architecture design
-* S3 + CloudFront frontend deployment plan
-* EC2 + ALB backend deployment plan
-* RDS PostgreSQL database plan
-* ElastiCache Redis session and Pub/Sub plan
-* Auto Scaling and WebSocket reconnect strategy
-* Cloud materials for the final report
-
----
-
-## Progress
-
-* [x] AWS architecture design
-* [x] S3 + CloudFront frontend deployment plan
-* [x] EC2 backend deployment plan
-* [x] ALB and Security Group plan
-* [x] RDS PostgreSQL migration plan
-* [x] Redis / ElastiCache WebSocket Pub/Sub plan
-* [x] Latest frontend deployment status checked
-* [x] AWS connection start plan prepared
-* [x] Test backend deployed on EC2 and `/health` verified
-* [x] Test backend configured with systemd
-* [x] S3 bucket created and frontend build files uploaded
-* [x] CloudFront distribution created
-* [ ] Deploy actual project backend code to EC2
-* [ ] Fix Target Group / ALB health check
-* [ ] Re-upload new frontend build after local URLs are removed
-* [ ] ALB connection test
-* [ ] RDS and ElastiCache integration
-* [ ] Final screenshots and report preparation
-
+* Prepare Auto Scaling screenshots
+* Prepare ALB target group healthy screenshot
+* Prepare WebSocket accepted log screenshot
+* Prepare CloudFront `/api/*` and `/ws/*` behavior screenshots
+* Explain that the current demo uses local Redis on EC2
+* Explain future production migration to ElastiCache Redis and RDS PostgreSQL
