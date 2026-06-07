@@ -1,23 +1,51 @@
-import { useEffect, useState } from "react";
-import { useParams, useLocation, useNavigate } from "react-router-dom";
+import { useEffect, useState, useRef } from "react";
+import { useParams, useNavigate } from "react-router-dom";
+import axios from "axios";
 
 import KakaoMap from "../components/kakaoMap";
-import { WS_BASE_URL } from "../api/config";
+import { API_BASE_URL, WS_BASE_URL } from "../api/config";
 
 export default function RoomPage() {
     const { id } = useParams();
-
-    const location = useLocation();
-    const room = location.state?.room;
     const navigate = useNavigate();
 
-    const [locations, setLocations] = useState([]);
+    const socketRef = useRef(null);
 
+    const [roomData, setRoomData] = useState(null);
+    const [locations, setLocations] = useState([]);
     const [rideStatus, setRideStatus] =
         useState("대기중");
-
     const [fare, setFare] = useState("");
 
+    // 방 정보를 API에서 최신 데이터로 가져오기
+    useEffect(() => {
+        const fetchRoomData = async () => {
+            try {
+                const response =
+                    await axios.get(
+                        `${API_BASE_URL}/api/rooms`
+                    );
+                const rooms =
+                    response.data.rooms || [];
+                const currentRoom =
+                    rooms.find(
+                        (r) => r.room_id === id
+                    );
+                if (currentRoom) {
+                    setRoomData(currentRoom);
+                }
+            } catch (error) {
+                console.error(
+                    "방 정보 조회 실패:",
+                    error
+                );
+            }
+        };
+
+        fetchRoomData();
+    }, [id]);
+
+    // WebSocket 연결
     useEffect(() => {
         const token =
             localStorage.getItem("token");
@@ -29,6 +57,7 @@ export default function RoomPage() {
             socket = new WebSocket(
                 `${WS_BASE_URL}/ws/rooms/${id}?token=${token}`
             );
+            socketRef.current = socket;
 
             socket.onopen = () => {
                 console.log(
@@ -41,6 +70,7 @@ export default function RoomPage() {
                             (position) => {
                                 socket.send(
                                     JSON.stringify({
+                                        type: "gps",
                                         lat: position
                                             .coords
                                             .latitude,
@@ -67,23 +97,42 @@ export default function RoomPage() {
                         event.data
                     );
 
-                setLocations(
-                    (prev) => {
-                        const filtered =
-                            prev.filter(
-                                (
-                                    user
-                                ) =>
-                                    user.nickname !==
-                                    data.nickname
-                            );
+                if (data.type === "gps") {
+                    // GPS 위치 마커 갱신
+                    setLocations(
+                        (prev) => {
+                            const filtered =
+                                prev.filter(
+                                    (
+                                        user
+                                    ) =>
+                                        user.nickname !==
+                                        data.nickname
+                                );
 
-                        return [
-                            ...filtered,
-                            data,
-                        ];
-                    }
-                );
+                            return [
+                                ...filtered,
+                                data,
+                            ];
+                        }
+                    );
+                } else if (
+                    data.type === "status"
+                ) {
+                    // 운행 상태 동기화
+                    setRideStatus(
+                        data.status
+                    );
+                } else if (
+                    data.type ===
+                    "settlement"
+                ) {
+                    // 정산 결과 수신
+                    alert(
+                        `🚖 정산 결과\n\n총 요금: ${data.totalFare.toLocaleString()}원\n참여 인원: ${data.memberCount}명\n1인당 ${data.perPerson.toLocaleString()}원`
+                    );
+                    navigate("/main");
+                }
             };
 
             socket.onerror = (
@@ -133,6 +182,27 @@ export default function RoomPage() {
         };
     }, [id]);
 
+    // 운행 상태 변경 + WebSocket 전송
+    const handleStatusChange = (
+        newStatus
+    ) => {
+        setRideStatus(newStatus);
+
+        if (
+            socketRef.current &&
+            socketRef.current.readyState ===
+                WebSocket.OPEN
+        ) {
+            socketRef.current.send(
+                JSON.stringify({
+                    type: "status",
+                    status: newStatus,
+                })
+            );
+        }
+    };
+
+    // 정산 처리 + WebSocket 전송
     const handleSettlement = () => {
         const totalFare =
             Number(fare);
@@ -145,7 +215,7 @@ export default function RoomPage() {
         }
 
         const memberCount =
-            room?.member_count || 1;
+            roomData?.member_count || 1;
 
         const perPerson =
             Math.ceil(
@@ -153,14 +223,24 @@ export default function RoomPage() {
                 memberCount
             );
 
+        // WebSocket으로 모든 멤버에게 정산 결과 전송
+        if (
+            socketRef.current &&
+            socketRef.current.readyState ===
+                WebSocket.OPEN
+        ) {
+            socketRef.current.send(
+                JSON.stringify({
+                    type: "settlement",
+                    totalFare,
+                    memberCount,
+                    perPerson,
+                })
+            );
+        }
+
         alert(
-            `🚖 정산 결과
-
-총 요금: ${totalFare.toLocaleString()}원
-
-참여 인원: ${memberCount}명
-
-1인당 ${perPerson.toLocaleString()}원`
+            `🚖 정산 결과\n\n총 요금: ${totalFare.toLocaleString()}원\n참여 인원: ${memberCount}명\n1인당 ${perPerson.toLocaleString()}원`
         );
         alert("운행이 종료되었습니다.");
         navigate("/main");
@@ -198,26 +278,26 @@ export default function RoomPage() {
                 <p>
                     📍 출발지:{" "}
                     {
-                        room?.departure
+                        roomData?.departure
                     }
                 </p>
 
                 <p>
                     🎯 목적지:{" "}
                     {
-                        room?.destination
+                        roomData?.destination
                     }
                 </p>
 
                 <p>
                     🕒 출발시간:{" "}
-                    {room?.time}
+                    {roomData?.time}
                 </p>
 
                 <p>
                     👥{" "}
                     {
-                        room?.member_count
+                        roomData?.member_count
                     }
                     /4명
                 </p>
@@ -241,7 +321,7 @@ export default function RoomPage() {
             >
                 <button
                     onClick={() =>
-                        setRideStatus(
+                        handleStatusChange(
                             "운행중"
                         )
                     }
@@ -251,7 +331,7 @@ export default function RoomPage() {
 
                 <button
                     onClick={() =>
-                        setRideStatus(
+                        handleStatusChange(
                             "운행 종료"
                         )
                     }

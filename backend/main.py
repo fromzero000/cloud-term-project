@@ -233,27 +233,42 @@ async def gps_websocket(websocket: WebSocket, room_id: str, token: str = Query(.
     listener_task = asyncio.create_task(listen_to_redis_and_send_to_client())
 
     try:
-        # 내 폰에서 올라오는 GPS 정보를 받아 Redis 채널에 뿌리는 작업 (무한 반복)
+        # 내 폰에서 올라오는 정보를 받아 Redis 채널에 뿌리는 작업 (무한 반복)
         while True:
-            # 프론트에서 데이터 수신 {"lat": 35.123, "lng": 129.123}
+            # 프론트에서 데이터 수신 {"type": "gps", "lat": 35.123, "lng": 129.123}
             data_str = await websocket.receive_text() 
             client_data = json.loads(data_str)
+            msg_type = client_data.get("type", "gps")
             
-            # 발송자 이름 추가하여 다시 조립
-            broadcast_msg = {
-                "nickname": user.nickname,
-                "lat": client_data.get("lat"),
-                "lng": client_data.get("lng")
-            }
+            # 메시지 타입별 분기 처리
+            if msg_type == "gps":
+                # GPS 위치 공유
+                broadcast_msg = {
+                    "type": "gps",
+                    "nickname": user.nickname,
+                    "lat": client_data.get("lat"),
+                    "lng": client_data.get("lng")
+                }
+            elif msg_type == "status":
+                # 운행 상태 변경 (운행중, 운행 종료 등)
+                broadcast_msg = {
+                    "type": "status",
+                    "nickname": user.nickname,
+                    "status": client_data.get("status")
+                }
+            elif msg_type == "settlement":
+                # 정산 결과 공유
+                broadcast_msg = {
+                    "type": "settlement",
+                    "nickname": user.nickname,
+                    "totalFare": client_data.get("totalFare"),
+                    "memberCount": client_data.get("memberCount"),
+                    "perPerson": client_data.get("perPerson")
+                }
+            else:
+                broadcast_msg = {**client_data, "nickname": user.nickname}
             
             # Redis에 방송 (이 방에 접속한 모든 서버의 사람들에게 데이터가 전달됨)
-            # 데이터 형식 json.dump(broadcast_msg):
-            # {
-            #     "type": "message",             # 👈 질문하신 부분! (택배 종류)
-            #     "pattern": None,
-            #     "channel": "room_gps_1",       # 👈 어느 방에서 왔는지
-            #     "data": '{"nickname": "강무진", "lat": 35.123, "lng": 129.123}' # 👈 우리가 보낸 알맹이!
-            # }
             await redis_client.publish(channel_name, json.dumps(broadcast_msg))
             
     except WebSocketDisconnect:
