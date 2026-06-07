@@ -4,6 +4,7 @@ export default function KakaoMap({ locations = [] }) {
     const mapRef = useRef(null);
     const mapInstance = useRef(null);
     const markersRef = useRef({});
+    const locationsRef = useRef([]);
 
     // 지도 최초 생성
     useEffect(() => {
@@ -12,7 +13,7 @@ export default function KakaoMap({ locations = [] }) {
         window.kakao.maps.load(() => {
             navigator.geolocation.getCurrentPosition(
                 (position) => {
-                    if (!mapRef.current) return; 
+                    if (!mapRef.current) return;
                     const lat = position.coords.latitude;
                     const lng = position.coords.longitude;
 
@@ -29,16 +30,18 @@ export default function KakaoMap({ locations = [] }) {
 
                     mapInstance.current = map;
 
-                    const myMarker =
-                        new window.kakao.maps.Marker({
-                            position:
-                                new window.kakao.maps.LatLng(
-                                    lat,
-                                    lng
-                                ),
+                    // 지도 생성 완료 후, 이미 도착한 위치 데이터로 마커 그리기
+                    locationsRef.current.forEach((user) => {
+                        const pos = new window.kakao.maps.LatLng(
+                            user.lat,
+                            user.lng
+                        );
+                        const marker = new window.kakao.maps.Marker({
+                            position: pos,
                         });
-
-                    myMarker.setMap(map);
+                        marker.setMap(map);
+                        markersRef.current[user.nickname] = marker;
+                    });
                 },
                 (error) => {
                     console.error(error);
@@ -49,6 +52,8 @@ export default function KakaoMap({ locations = [] }) {
 
     // 위치 데이터 변경 시 마커 갱신
     useEffect(() => {
+        locationsRef.current = locations;
+
         if (!mapInstance.current) return;
 
         locations.forEach((user) => {
